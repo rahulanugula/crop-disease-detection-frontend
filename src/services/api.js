@@ -1,16 +1,19 @@
 import axios from 'axios';
 
-// Resolve API base URL at runtime to avoid accidentally hitting localhost in deployed builds.
-const apiBaseFromEnv = import.meta.env.VITE_API_BASE_URL;
+// Hard-stop localhost in production. Even if env vars are missing or cached builds linger,
+// Vercel-hosted builds will point to the Render API.
 const isVercel = typeof window !== 'undefined' && window.location.hostname.endsWith('vercel.app');
-const fallbackProd = 'https://crop-disease-detection-backend-wfyq.onrender.com/api';
-const fallbackLocal = 'http://localhost:8080/api';
+const apiBaseFromEnv = import.meta.env.VITE_API_BASE_URL;
+const renderBase = 'https://crop-disease-detection-backend-wfyq.onrender.com/api';
+const localBase = 'http://localhost:8080/api';
 
-let resolvedBase = apiBaseFromEnv || (isVercel ? fallbackProd : fallbackLocal);
-
-// Safety net: if a stale bundle still carries localhost, override to prod when running on vercel/app.
-if (isVercel && resolvedBase.includes('localhost')) {
-  resolvedBase = fallbackProd;
+let resolvedBase;
+if (import.meta.env.PROD) {
+  resolvedBase = apiBaseFromEnv && !apiBaseFromEnv.includes('localhost')
+    ? apiBaseFromEnv
+    : renderBase;
+} else {
+  resolvedBase = apiBaseFromEnv || (isVercel ? renderBase : localBase);
 }
 
 const api = axios.create({
